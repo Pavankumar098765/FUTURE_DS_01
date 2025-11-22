@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>E-Commerce Sales – Interactive Dashboard</title>
+
+  <!-- Chart.js & PapaParse from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --card-bg: #ffffff;
+      --accent: #3572ef;
+      --accent-soft: #e3ecff;
+      --accent-strong: #1f4bb8;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --danger: #f97373;
+      --success: #22c55e;
+      --radius-lg: 14px;
+      --shadow-soft: 0 14px 30px rgba(15, 23, 42, 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background: radial-gradient(circle at top left, #eef3ff 0, #f5f5f7 45%, #fdfdfd 100%);
+      color: var(--text-main);
+    }
+
+    .app-shell {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px 20px 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+      gap: 12px;
+    }
+
+    .title-block h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: 0.02em;
+    }
+
+    .title-block p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .file-upload {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: var(--card-bg);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+      border: 1px solid #d1d5db;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .file-upload input {
+      display: none;
+    }
+
+    .file-upload span.icon {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .file-name {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    /* Layout */
+    .layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-soft);
+      padding: 14px 14px 16px;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    /* Filters */
+    .filters-card {
+      position: sticky;
+      top: 12px;
+    }
+
+    .filters-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .filters-header h2 {
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .filters-header button {
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font-size: 11px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .filter-group {
+      margin-bottom: 10px;
+    }
+
+    .filter-group label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .filter-group select,
+    .filter-group input[type="date"],
+    .filter-group input[type="range"] {
+      width: 100%;
+      font-size: 12px;
+      border-radius: 999px;
+      border: 1px solid #d1d5db;
+      padding: 5px 10px;
+      outline: none;
+    }
+
+    .filter-group select[multiple] {
+      height: 72px;
+    }
+
+    .filter-value-display {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      text-align: right;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .chip {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      cursor: pointer;
+    }
+
+    /* KPIs */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    @media (max-width: 960px) {
+      .kpi-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .kpi {
+      padding: 10px 12px;
+      border-radius: 15px;
+      background: linear-gradient(135deg, #ffffff, #eef3ff);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi::after {
+      content: "";
+      position: absolute;
+      right: -24px;
+      top: -24px;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(53,114,239,0.18), transparent 60%);
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+
+    .kpi-value {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .kpi-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Charts grid */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.4fr);
+      grid-auto-rows: 260px;
+      gap: 10px;
+    }
+
+    @media (max-width: 1200px) {
+      .charts-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .chart-card {
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 4px;
+    }
+
+    .chart-title {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .chart-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .chart-wrapper {
+      position: relative;
+      flex: 1;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+    }
+
+    .no-data {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    /* Top customers table */
+    .table-wrapper {
+      overflow-x: auto;
+      max-height: 220px;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 11px;
+    }
+
+    th, td {
+      padding: 4px 6px;
+      text-align: left;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-muted);
+      background: #f9fafb;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    footer {
+      margin-top: 18px;
+      font-size: 11px;
+      color: var(--text-muted);
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div class="title-block">
+        <h1>E-Commerce Sales Interactive Dashboard</h1>
+        <p>Analyse revenue, profit, segment & region performance with live filters.</p>
+      </div>
+      <div>
+        <label class="file-upload">
+          <span class="icon">⬆</span>
+          <span>Upload Orders CSV</span>
+          <input type="file" id="csvFile" accept=".csv" />
+        </label>
+        <div class="file-name" id="fileName">No file loaded</div>
+      </div>
+    </header>
+
+    <div class="layout">
+      <!-- FILTERS SIDEBAR -->
+      <aside class="card filters-card">
+        <div class="filters-header">
+          <h2>Filters</h2>
+          <button id="resetFiltersBtn">Reset</button>
+        </div>
+
+        <div class="filter-group">
+          <label>Date range</label>
+          <input id="dateFrom" type="date" />
+          <div style="height:4px"></div>
+          <input id="dateTo" type="date" />
+          <div class="filter-value-display" id="dateRangeLabel">All time</div>
+        </div>
+
+        <div class="filter-group">
+          <label for="marketSelect">Market</label>
+          <select id="marketSelect" multiple></select>
+          <div class="filter-value-display" id="marketCountLabel">All markets</div>
+        </div>
+
+        <div class="filter-group">
+          <label for="segmentSelect">Segment</label>
+          <select id="segmentSelect" multiple></select>
+          <div class="filter-value-display" id="segmentCountLabel">All segments</div>
+        </div>
+
+        <div class="filter-group">
+          <label for="categorySelect">Category</label>
+          <select id="categorySelect" multiple></select>
+          <div class="filter-value-display" id="categoryCountLabel">All categories</div>
+        </div>
+
+        <div class="filter-group">
+          <label for="profitMin">Min Profit per Order</label>
+          <input id="profitMin" type="range" min="-1000" max="2000" step="50" value="-1000" />
+          <div class="filter-value-display">
+            ₹ <span id="profitMinValue">-1000</span> or more
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label>Quick Insights</label>
+          <div class="chip-row" id="quickInsightsRow">
+            <div class="chip">High Profit</div>
+            <div class="chip">Loss Making</div>
+            <div class="chip">High Discount</div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main>
+        <!-- KPIs -->
+        <section class="kpi-row">
+          <div class="kpi">
+            <div class="kpi-label">Total Sales</div>
+            <div class="kpi-value" id="kpiTotalSales">–</div>
+            <div class="kpi-sub" id="kpiTotalOrders">Orders: –</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Total Profit</div>
+            <div class="kpi-value" id="kpiTotalProfit">–</div>
+            <div class="kpi-sub" id="kpiProfitMargin">Profit margin: –</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Average Order Value</div>
+            <div class="kpi-value" id="kpiAOV">–</div>
+            <div class="kpi-sub" id="kpiAvgDiscount">Avg discount: –</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Top Region</div>
+            <div class="kpi-value" id="kpiTopRegion">–</div>
+            <div class="kpi-sub" id="kpiTopSegment">Top segment: –</div>
+          </div>
+        </section>
+
+        <!-- Charts -->
+        <section class="charts-grid">
+          <!-- Sales over time -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Sales Over Time</div>
+              <div class="chart-subtitle">Monthly revenue trend</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartSalesTime"></canvas>
+            </div>
+          </div>
+
+          <!-- Segment share -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Segment Share</div>
+              <div class="chart-subtitle">Sales contribution by segment</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartSegmentShare"></canvas>
+            </div>
+          </div>
+
+          <!-- Sales by category -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Sales by Category</div>
+              <div class="chart-subtitle">Revenue per product category</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartCategorySales"></canvas>
+            </div>
+          </div>
+
+          <!-- Profit by region -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Profit by Region</div>
+              <div class="chart-subtitle">Where we win or lose money</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartRegionProfit"></canvas>
+            </div>
+          </div>
+
+          <!-- Ship mode orders -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Orders by Ship Mode</div>
+              <div class="chart-subtitle">Service level mix</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartShipMode"></canvas>
+            </div>
+          </div>
+
+          <!-- Sales vs Profit scatter -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Sales vs Profit</div>
+              <div class="chart-subtitle">Order-level profitability</div>
+            </div>
+            <div class="chart-wrapper">
+              <canvas id="chartSalesProfit"></canvas>
+            </div>
+          </div>
+
+          <!-- Top customers -->
+          <div class="card chart-card">
+            <div class="chart-header">
+              <div class="chart-title">Top Customers</div>
+              <div class="chart-subtitle">By sales in current filters</div>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Orders</th>
+                    <th>Sales</th>
+                    <th>Profit</th>
+                  </tr>
+                </thead>
+                <tbody id="topCustomersBody">
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <div class="no-data" id="noDataMessage" style="display:none;">
+          No data matches current filters. Try resetting or widening the ranges.
+        </div>
+      </main>
+    </div>
+
+    <footer>
+      Built for “ECOMM DATA – Orders” · Interactive HTML dashboard (Chart.js + PapaParse)
+    </footer>
+  </div>
+
+  <script>
+    // ========= GLOBAL STATE =========
+    let rawData = [];
+    let filteredData = [];
+
+    const filters = {
+      dateFrom: null,
+      dateTo: null,
+      markets: [],
+      segments: [],
+      categories: [],
+      profitMin: -1000,
+      quickMode: null
+    };
+
+    const charts = {
+      salesTime: null,
+      segmentShare: null,
+      categorySales: null,
+      regionProfit: null,
+      shipMode: null,
+      salesProfit: null
+    };
+
+    // ========= UTILITIES =========
+
+    function parseDMY(str) {
+      if (!str) return null;
+      const parts = String(str).split(/[\/\-]/);
+      if (parts.length !== 3) return null;
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const y = parseInt(parts[2], 10);
+      if (isNaN(d) || isNaN(m) || isNaN(y)) return null;
+      return new Date(y, m - 1, d);
+    }
+
+    function formatDateForInput(date) {
+      if (!(date instanceof Date) || isNaN(date.getTime())) return "";
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function cleanNumber(val) {
+      if (val == null) return NaN;
+      if (typeof val === "number") return val;
+      let s = String(val).trim();
+      if (!s) return NaN;
+      s = s.replace(/₹/g, "").replace(/,/g, "").replace(/%/g, "");
+      const num = parseFloat(s);
+      return isNaN(num) ? NaN : num;
+    }
+
+    function groupBy(array, keyFn) {
+      const map = new Map();
+      for (const item of array) {
+        const key = keyFn(item);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(item);
+      }
+      return map;
+    }
+
+    function sum(arr, selector) {
+      let s = 0;
+      for (const item of arr) {
+        const v = selector(item);
+        if (!isNaN(v)) s += v;
+      }
+      return s;
+    }
+
+    function average(arr, selector) {
+      let s = 0, c = 0;
+      for (const item of arr) {
+        const v = selector(item);
+        if (!isNaN(v)) { s += v; c++; }
+      }
+      return c ? s / c : NaN;
+    }
+
+    function formatCurrency(val) {
+      if (val == null || isNaN(val)) return "₹0";
+      return "₹" + Math.round(val).toLocaleString();
+    }
+
+    // ========= EVENT WIRING =========
+
+    document.getElementById("csvFile").addEventListener("change", handleFileSelect);
+
+    document.getElementById("dateFrom").addEventListener("change", () => {
+      const v = document.getElementById("dateFrom").value;
+      filters.dateFrom = v ? new Date(v) : null;
+      filters.quickMode = null;
+      updateDateLabel();
+      applyFiltersAndUpdate();
+    });
+
+    document.getElementById("dateTo").addEventListener("change", () => {
+      const v = document.getElementById("dateTo").value;
+      filters.dateTo = v ? new Date(v) : null;
+      filters.quickMode = null;
+      updateDateLabel();
+      applyFiltersAndUpdate();
+    });
+
+    document.getElementById("marketSelect").addEventListener("change", () => {
+      const select = document.getElementById("marketSelect");
+      filters.markets = Array.from(select.selectedOptions).map(o => o.value);
+      document.getElementById("marketCountLabel").textContent =
+        filters.markets.length ? filters.markets.length + " selected" : "All markets";
+      filters.quickMode = null;
+      applyFiltersAndUpdate();
+    });
+
+    document.getElementById("segmentSelect").addEventListener("change", () => {
+      const select = document.getElementById("segmentSelect");
+      filters.segments = Array.from(select.selectedOptions).map(o => o.value);
+      document.getElementById("segmentCountLabel").textContent =
+        filters.segments.length ? filters.segments.length + " selected" : "All segments";
+      filters.quickMode = null;
+      applyFiltersAndUpdate();
+    });
+
+    document.getElementById("categorySelect").addEventListener("change", () => {
+      const select = document.getElementById("categorySelect");
+      filters.categories = Array.from(select.selectedOptions).map(o => o.value);
+      document.getElementById("categoryCountLabel").textContent =
+        filters.categories.length ? filters.categories.length + " selected" : "All categories";
+      filters.quickMode = null;
+      applyFiltersAndUpdate();
+    });
+
+    document.getElementById("profitMin").addEventListener("input", () => {
+      filters.profitMin = parseFloat(document.getElementById("profitMin").value);
+      document.getElementById("profitMinValue").textContent = filters.profitMin;
+      filters.quickMode = null;
+      applyFiltersAndUpdate();
+    });
+
+    document.getElementById("resetFiltersBtn").addEventListener("click", () => {
+      resetFiltersToDefaults();
+      applyFiltersAndUpdate();
+    });
+
+    document.getElementById("quickInsightsRow").addEventListener("click", (e) => {
+      if (!e.target.classList.contains("chip")) return;
+      const label = e.target.textContent.trim();
+      if (label === "High Profit") {
+        filters.quickMode = "highProfit";
+        filters.profitMin = 200;
+        document.getElementById("profitMin").value = 200;
+        document.getElementById("profitMinValue").textContent = "200";
+      } else if (label === "Loss Making") {
+        filters.quickMode = "lossMaking";
+        filters.profitMin = -100000; // allow negative
+        document.getElementById("profitMin").value = -1000;
+        document.getElementById("profitMinValue").textContent = "-1000";
+      } else if (label === "High Discount") {
+        filters.quickMode = "highDiscount";
+        // just a mode; additional logic can be added if you want discount slider
+      }
+      applyFiltersAndUpdate();
+    });
+
+    // ========= FILE LOAD =========
+
+    function handleFileSelect(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      document.getElementById("fileName").textContent = file.name;
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          rawData = results.data.map((row, idx) => {
+            const date = parseDMY(row["Order Date"]);
+            const sales = cleanNumber(row["Sales"]);
+            const profit = cleanNumber(row["Profit"]);
+            const qty = cleanNumber(row["Quantity"]);
+            const discount = cleanNumber(row["Discount"]);
+            const shipCost = cleanNumber(row["Shipping Cost"]);
+            const category = (row["Category"] || "").trim() || "Unknown";
+            const segment = (row["Segment"] || "").trim() || "Unknown";
+            const market = (row["Market"] || "").trim() || "Unknown";
+            const region = (row["Region"] || "").trim() || "Unknown";
+            const shipMode = (row["Ship Mode"] || "").trim() || "Unknown";
+            const customerName = row["Customer Name"] || "";
+            const orderId = row["Order ID"] || "";
+
+            let yearMonth = "";
+            if (date instanceof Date && !isNaN(date.getTime())) {
+              const y = date.getFullYear();
+              const m = String(date.getMonth() + 1).padStart(2, "0");
+              yearMonth = `${y}-${m}`;
+            }
+
+            return {
+              index: idx + 1,
+              orderId,
+              orderDate: date,
+              yearMonth,
+              shipMode,
+              customerName,
+              segment,
+              city: row["City"] || "",
+              state: row["State"] || "",
+              country: row["Country"] || "",
+              market,
+              region,
+              category,
+              subCategory: row["Sub-Category"] || "",
+              sales,
+              profit,
+              quantity: qty,
+              discount,
+              shippingCost: shipCost
+            };
+          });
+
+          initFiltersFromData();
+          applyFiltersAndUpdate();
+        }
+      });
+    }
+
+    // ========= FILTER INITIALIZATION =========
+
+    function initFiltersFromData() {
+      if (!rawData.length) return;
+
+      const markets = Array.from(new Set(rawData.map(d => d.market))).sort();
+      const segments = Array.from(new Set(rawData.map(d => d.segment))).sort();
+      const categories = Array.from(new Set(rawData.map(d => d.category))).sort();
+
+      const marketSelect = document.getElementById("marketSelect");
+      marketSelect.innerHTML = "";
+      markets.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        marketSelect.appendChild(opt);
+      });
+
+      const segmentSelect = document.getElementById("segmentSelect");
+      segmentSelect.innerHTML = "";
+      segments.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = s;
+        segmentSelect.appendChild(opt);
+      });
+
+      const categorySelect = document.getElementById("categorySelect");
+      categorySelect.innerHTML = "";
+      categories.forEach(c => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        categorySelect.appendChild(opt);
+      });
+
+      document.getElementById("marketCountLabel").textContent = "All markets";
+      document.getElementById("segmentCountLabel").textContent = "All segments";
+      document.getElementById("categoryCountLabel").textContent = "All categories";
+
+      const dates = rawData
+        .map(d => d.orderDate)
+        .filter(d => d instanceof Date && !isNaN(d.getTime()));
+      const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+      const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+
+      filters.dateFrom = minDate;
+      filters.dateTo = maxDate;
+
+      const dateFromInput = document.getElementById("dateFrom");
+      const dateToInput = document.getElementById("dateTo");
+      dateFromInput.value = formatDateForInput(minDate);
+      dateToInput.value = formatDateForInput(maxDate);
+      updateDateLabel();
+
+      filters.markets = [];
+      filters.segments = [];
+      filters.categories = [];
+      filters.profitMin = -1000;
+      document.getElementById("profitMin").value = -1000;
+      document.getElementById("profitMinValue").textContent = "-1000";
+      filters.quickMode = null;
+    }
+
+    function updateDateLabel() {
+      const label = document.getElementById("dateRangeLabel");
+      if (!filters.dateFrom || !filters.dateTo) {
+        label.textContent = "All time";
+        return;
+      }
+      label.textContent = `${formatDateForInput(filters.dateFrom)} → ${formatDateForInput(filters.dateTo)}`;
+    }
+
+    function resetFiltersToDefaults() {
+      if (!rawData.length) return;
+      initFiltersFromData();
+    }
+
+    // ========= MAIN FILTER + UPDATE =========
+
+    function applyFiltersAndUpdate() {
+      if (!rawData.length) return;
+
+      filteredData = rawData.filter(row => {
+        if (filters.dateFrom && row.orderDate && row.orderDate < filters.dateFrom) {
+          return false;
+        }
+        if (filters.dateTo && row.orderDate && row.orderDate > filters.dateTo) {
+          return false;
+        }
+        if (filters.markets.length && !filters.markets.includes(row.market)) {
+          return false;
+        }
+        if (filters.segments.length && !filters.segments.includes(row.segment)) {
+          return false;
+        }
+        if (filters.categories.length && !filters.categories.includes(row.category)) {
+          return false;
+        }
+        if (!isNaN(filters.profitMin) && !isNaN(row.profit) && row.profit < filters.profitMin) {
+          return false;
+        }
+        if (filters.quickMode === "highDiscount" && !isNaN(row.discount) && row.discount < 0.2) {
+          // example threshold: >= 20% discount
+          return false;
+        }
+        return true;
+      });
+
+      const noData = filteredData.length === 0;
+      document.getElementById("noDataMessage").style.display = noData ? "block" : "none";
+
+      updateKpis();
+      updateCharts();
+      updateTopCustomers();
+    }
+
+    // ========= KPI UPDATE =========
+
+    function updateKpis() {
+      const totalSales = sum(filteredData, d => d.sales);
+      const totalProfit = sum(filteredData, d => d.profit);
+      const totalOrders = filteredData.length;
+      const totalQty = sum(filteredData, d => d.quantity);
+      const avgDiscount = average(filteredData, d => d.discount);
+      const aov = totalOrders ? totalSales / totalOrders : NaN;
+      const profitMargin = totalSales ? (totalProfit / totalSales) * 100 : NaN;
+
+      const byRegion = groupBy(filteredData, d => d.region);
+      let bestRegion = "–";
+      let bestRegionSales = -Infinity;
+      for (const [region, rows] of byRegion) {
+        const s = sum(rows, d => d.sales);
+        if (s > bestRegionSales) {
+          bestRegionSales = s;
+          bestRegion = region;
+        }
+      }
+
+      const bySegment = groupBy(filteredData, d => d.segment);
+      let bestSegment = "–";
+      let bestSegmentSales = -Infinity;
+      for (const [seg, rows] of bySegment) {
+        const s = sum(rows, d => d.sales);
+        if (s > bestSegmentSales) {
+          bestSegmentSales = s;
+          bestSegment = seg;
+        }
+      }
+
+      document.getElementById("kpiTotalSales").textContent = formatCurrency(totalSales);
+      document.getElementById("kpiTotalOrders").textContent =
+        "Orders: " + (totalOrders ? totalOrders.toLocaleString() : "0");
+
+      document.getElementById("kpiTotalProfit").textContent = formatCurrency(totalProfit);
+      document.getElementById("kpiProfitMargin").textContent =
+        isNaN(profitMargin) ? "Profit margin: –" : `Profit margin: ${profitMargin.toFixed(1)}%`;
+
+      document.getElementById("kpiAOV").textContent = isNaN(aov) ? "–" : formatCurrency(aov);
+      document.getElementById("kpiAvgDiscount").textContent =
+        isNaN(avgDiscount) ? "Avg discount: –" : `Avg discount: ${(avgDiscount * 100).toFixed(1)}%`;
+
+      document.getElementById("kpiTopRegion").textContent = bestRegion;
+      document.getElementById("kpiTopSegment").textContent =
+        bestSegment === "–" ? "Top segment: –" : `Top segment: ${bestSegment}`;
+    }
+
+    // ========= CHARTS =========
+
+    function updateCharts() {
+      const ctxSalesTime = document.getElementById("chartSalesTime").getContext("2d");
+      const ctxSegmentShare = document.getElementById("chartSegmentShare").getContext("2d");
+      const ctxCategorySales = document.getElementById("chartCategorySales").getContext("2d");
+      const ctxRegionProfit = document.getElementById("chartRegionProfit").getContext("2d");
+      const ctxShipMode = document.getElementById("chartShipMode").getContext("2d");
+      const ctxSalesProfit = document.getElementById("chartSalesProfit").getContext("2d");
+
+      const palette = [
+        "#3572ef", "#ff914d", "#22c55e", "#8b5cf6", "#f97373",
+        "#0ea5e9", "#eab308", "#ec4899", "#10b981", "#6366f1"
+      ];
+
+      // --- Sales over time (month) ---
+      const byMonth = groupBy(filteredData.filter(d => d.yearMonth), d => d.yearMonth);
+      const monthKeys = Array.from(byMonth.keys()).sort();
+      const monthLabels = monthKeys;
+      const monthSales = monthKeys.map(k => sum(byMonth.get(k), d => d.sales));
+
+      if (charts.salesTime) charts.salesTime.destroy();
+      charts.salesTime = new Chart(ctxSalesTime, {
+        type: "line",
+        data: {
+          labels: monthLabels,
+          datasets: [{
+            label: "Sales",
+            data: monthSales,
+            borderColor: "#3572ef",
+            backgroundColor: "rgba(53,114,239,0.15)",
+            tension: 0.25,
+            fill: true,
+            pointRadius: 1.5
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: ctx => formatCurrency(ctx.parsed.y)
+            }}
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+
+      // --- Segment share pie ---
+      const bySegment = groupBy(filteredData, d => d.segment);
+      const segLabels = Array.from(bySegment.keys());
+      const segSales = segLabels.map(s => sum(bySegment.get(s), d => d.sales));
+
+      if (charts.segmentShare) charts.segmentShare.destroy();
+      charts.segmentShare = new Chart(ctxSegmentShare, {
+        type: "doughnut",
+        data: {
+          labels: segLabels,
+          datasets: [{
+            data: segSales,
+            backgroundColor: segLabels.map((_, i) => palette[i % palette.length])
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: "55%",
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 10 } },
+            tooltip: { callbacks: {
+              label: ctx => `${ctx.label}: ${formatCurrency(ctx.parsed)}`
+            }}
+          }
+        }
+      });
+
+      // --- Sales by category ---
+      const byCategory = groupBy(filteredData, d => d.category);
+      let catLabels = Array.from(byCategory.keys());
+      let catSales = catLabels.map(cat => sum(byCategory.get(cat), d => d.sales));
+
+      // Sort descending by sales
+      const combined = catLabels.map((cat, i) => ({ cat, val: catSales[i] }))
+        .sort((a, b) => b.val - a.val);
+      catLabels = combined.map(x => x.cat);
+      catSales = combined.map(x => x.val);
+
+      if (charts.categorySales) charts.categorySales.destroy();
+      charts.categorySales = new Chart(ctxCategorySales, {
+        type: "bar",
+        data: {
+          labels: catLabels,
+          datasets: [{
+            label: "Sales",
+            data: catSales,
+            backgroundColor: "#3572ef"
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: { beginAtZero: true },
+            x: { ticks: { display: catLabels.length <= 12 } }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: ctx => formatCurrency(ctx.parsed.y)
+            }}
+          }
+        }
+      });
+
+      // --- Profit by region ---
+      const byRegion = groupBy(filteredData, d => d.region);
+      const regionLabels = Array.from(byRegion.keys());
+      const regionProfit = regionLabels.map(r => sum(byRegion.get(r), d => d.profit));
+
+      if (charts.regionProfit) charts.regionProfit.destroy();
+      charts.regionProfit = new Chart(ctxRegionProfit, {
+        type: "bar",
+        data: {
+          labels: regionLabels,
+          datasets: [{
+            label: "Profit",
+            data: regionProfit,
+            backgroundColor: regionProfit.map(p => p >= 0 ? "#22c55e" : "#f97373")
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: {
+              label: ctx => formatCurrency(ctx.parsed.y)
+            }}
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+
+      // --- Ship mode orders ---
+      const byShipMode = groupBy(filteredData, d => d.shipMode);
+      const shipLabels = Array.from(byShipMode.keys());
+      const shipCounts = shipLabels.map(l => byShipMode.get(l).length);
+
+      if (charts.shipMode) charts.shipMode.destroy();
+      charts.shipMode = new Chart(ctxShipMode, {
+        type: "bar",
+        data: {
+          labels: shipLabels,
+          datasets: [{
+            label: "Orders",
+            data: shipCounts,
+            backgroundColor: "#ff914d"
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+
+      // --- Sales vs Profit scatter ---
+      const points = filteredData.slice(0, 2000).map(d => ({
+        x: d.sales || 0,
+        y: d.profit || 0
+      }));
+
+      if (charts.salesProfit) charts.salesProfit.destroy();
+      charts.salesProfit = new Chart(ctxSalesProfit, {
+        type: "scatter",
+        data: {
+          datasets: [{
+            label: "Order",
+            data: points,
+            backgroundColor: "rgba(53,114,239,0.6)",
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `Sales: ${formatCurrency(ctx.parsed.x)}, Profit: ${formatCurrency(ctx.parsed.y)}`
+              }
+            }
+          },
+          scales: {
+            x: { title: { display: true, text: "Sales" } },
+            y: { title: { display: true, text: "Profit" } }
+          }
+        }
+      });
+    }
+
+    // ========= TOP CUSTOMERS TABLE =========
+
+    function updateTopCustomers() {
+      const body = document.getElementById("topCustomersBody");
+      body.innerHTML = "";
+
+      const byCustomer = groupBy(filteredData, d => d.customerName || "Unknown");
+      const rows = [];
+      for (const [cust, orders] of byCustomer) {
+        const s = sum(orders, d => d.sales);
+        const p = sum(orders, d => d.profit);
+        rows.push({
+          customer: cust,
+          orders: orders.length,
+          sales: s,
+          profit: p
+        });
+      }
+
+      rows.sort((a, b) => b.sales - a.sales);
+      const top = rows.slice(0, 8);
+
+      for (const r of top) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.customer}</td>
+          <td>${r.orders}</td>
+          <td>${formatCurrency(r.sales)}</td>
+          <td style="color:${r.profit >= 0 ? '#16a34a' : '#dc2626'}">${formatCurrency(r.profit)}</td>
+        `;
+        body.appendChild(tr);
+      }
+
+      if (!top.length) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="4" style="text-align:center;color:#9ca3af;">No data</td>`;
+        body.appendChild(tr);
+      }
+    }
+  </script>
+</body>
+</html>
+
